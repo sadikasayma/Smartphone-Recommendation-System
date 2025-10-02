@@ -1,0 +1,376 @@
+package FinalProject;
+
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.time.Duration;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
+import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.NoSuchElementException;
+import org.openqa.selenium.TimeoutException;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
+
+import io.github.bonigarcia.wdm.WebDriverManager;
+
+public class FinalProject {
+
+    public static void main(String[] args) throws IOException, InterruptedException {
+        
+        // TASK1: Setup the driver and open the OnePlus website
+        WebDriverManager.chromedriver().setup();
+        WebDriver driver = new ChromeDriver();
+        driver.get("https://www.oneplus.com/us");
+        driver.manage().window().maximize();
+
+        // Wait for the page to load
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+
+        // Interact with elements (e.g., click a link or button)
+        WebElement browsePhone = wait.until(ExpectedConditions.elementToBeClickable(By.xpath("(//a[@class='font-body-md first-product-name black95'][normalize-space()='Phone'])[1]")));
+        browsePhone.click(); 
+        Thread.sleep(3000);
+      
+        // TASK 2: Store the text from UI
+        String productName1 = driver.findElement(By.xpath("//div[@class='spu-name-box font-subheading-md'][normalize-space()='OnePlus 13R']")).getText();
+        String productPrice1 = driver.findElement(By.xpath("(//div[@class='spu-price flex'])[1]")).getText();
+        
+        // Clicking a link/button to go to a new page
+        WebElement productName1Click = wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//div[@class='spu-name-box font-subheading-md'][normalize-space()='OnePlus 13R']")));
+        productName1Click.click();
+        Thread.sleep(3000);
+        
+        // New tab opening and handling
+        String originalTabHandle = driver.getWindowHandle();
+        Set<String> allTabHandles = driver.getWindowHandles();
+
+        // Switch to the new tab
+        for (String handle : allTabHandles) {
+            if (!handle.equals(originalTabHandle)) {
+                driver.switchTo().window(handle); // Switch to the new tab
+     //           System.out.println("Switched to New Tab: " + handle);
+                break;
+            }
+        }
+
+        // Perform actions in the new tab
+     //   System.out.println("New Tab Title: " + driver.getTitle());
+        
+        // Store the text from UI
+        String productStorage1 = driver.findElement(By.xpath("//*[@id=\"top-information-fixed-start\"]/div[3]/span[2]")).getText();
+        String productColor1 = driver.findElement(By.xpath("//*[@id=\"top-information-fixed-start\"]/div[3]/span[1]")).getText();
+        
+        // TASK 3: Write the text from different pages in a CSV file
+        FileWriter csvWriter = new FileWriter("scraped_data.csv", true);
+        BufferedWriter bufferedWriter = new BufferedWriter(csvWriter);
+        PrintWriter printWriter = new PrintWriter(bufferedWriter);
+
+        // If the file is newly created, write the headers
+        File file = new File("scraped_data.csv");
+        if (file.length() == 0) {
+            printWriter.println("Product Name,Product Price,Color,Product Specs");
+        }
+
+        // Append new data
+        printWriter.println(productName1 + "," + productPrice1 + "," + productColor1 + "," + productStorage1);
+
+        // Close the writer
+        printWriter.close();
+
+        // Printing the results
+        System.out.println("Product: " + productName1);
+        System.out.println("Price: " + productPrice1);
+        System.out.println("Color: " + productColor1);
+        System.out.println("Storage: " + productStorage1);
+        
+
+        // 2. Navigate to Samsung Canada - All Smartphones
+        driver.get("https://www.samsung.com/ca/smartphones/all-smartphones/");
+
+        try {
+            Thread.sleep(5000); // Wait for page to load
+
+            // 3. Handle pop-up if it appears
+            try {
+                WebDriverWait wait1 = new WebDriverWait(driver, Duration.ofSeconds(5));
+                WebElement popupCloseButton = wait1.until(
+                    ExpectedConditions.elementToBeClickable(By.cssSelector(".popup-close-button"))
+                );
+                popupCloseButton.click(); // Close the pop-up
+                Thread.sleep(2000); // Allow time for pop-up to close
+            } catch (Exception e) {
+                System.out.println("No pop-up detected.");
+            }
+
+            // 4. Scrape multiple pages if available
+            boolean hasNextPage = true;
+            while (hasNextPage) {
+                // Scroll down to load all phones
+                JavascriptExecutor js = (JavascriptExecutor) driver;
+                js.executeScript("window.scrollBy(0, document.body.scrollHeight)");
+                Thread.sleep(3000); // Allow time for loading
+
+                // 5. Find all product cards on the current page
+                List<WebElement> phoneCards = driver.findElements(By.cssSelector("div.pd19-product-card__item"));
+
+                // 6. Prepare CSV file
+                File file1 = new File("samsunggg_smartphones.csv");
+                boolean writeHeader = !file1.exists(); // If file doesn't exist, we need to write header first
+
+                // 7. Open the CSV in append mode
+                try (PrintWriter printWriter1 = new PrintWriter(new BufferedWriter(new FileWriter(file1, true)))) {
+                    // Write headers if it's a new file
+                    if (writeHeader) {
+                        printWriter1.println("Smartphone Model,Price,Storage Options,Available Colors");
+                    }
+
+                    // Also print column headers in the console (optional)
+                    System.out.println("Smartphone Model,Price,Storage Options,Available Colors");
+
+                    // 8. Loop through each phone card
+                    for (WebElement phoneCard : phoneCards) {
+                        // Extract model name
+                        String model;
+                        try {
+                            WebElement modelElement = phoneCard.findElement(By.cssSelector(".pd19-product-card__name"));
+                            model = modelElement.getText().trim();
+                        } catch (Exception e) {
+                            model = "";
+                        }
+
+                        // If we can't find a model name, skip this card
+                        if (model.isEmpty()) {
+                            continue;
+                        }
+
+                        // Extract price
+                        String price;
+                        try {
+                            WebElement priceElement = phoneCard.findElement(By.cssSelector(".pd19-product-card__current-price"));
+                            // Remove non-numeric characters except dot
+                            price = priceElement.getText().replaceAll("[^0-9.]", "").trim();
+                            price = price.isEmpty() ? "Price not listed" : "\"\t$" + price + "\""; // For CSV
+                        } catch (Exception e) {
+                            price = "Price not listed";
+                        }
+
+                        // Extract storage options
+                        Set<String> storageSet = new HashSet<>();
+                        try {
+                            List<WebElement> storageElements = phoneCard.findElements(By.cssSelector(".option-selector-v3__size-text"));
+                            for (WebElement storage : storageElements) {
+                                String storageText = storage.getText().trim();
+                                if (!storageText.isEmpty()) {
+                                    storageSet.add(storageText);
+                                }
+                            }
+                        } catch (Exception e) {
+                            System.out.println("No storage options found for " + model);
+                        }
+                        String storageList = String.join(" / ", storageSet);
+
+                        // Extract all available colors from the "an-la" attribute
+                        Set<String> colorSet = new HashSet<>();
+                        try {
+                            // Each color is inside a <button> with an attribute like an-la="color:mint"
+                            List<WebElement> colorButtons = phoneCard.findElements(By.cssSelector("li.option-selector-v3__item button"));
+                            for (WebElement button : colorButtons) {
+                                String colorAttr = button.getAttribute("an-la"); // e.g. "color:mint"
+                                if (colorAttr != null && colorAttr.contains("color:")) {
+                                    // Extract the color name (everything after "color:")
+                                    String colorName = colorAttr.substring(colorAttr.indexOf("color:") + 6).trim();
+                                    if (!colorName.isEmpty()) {
+                                        colorSet.add(colorName);
+                                    }
+                                }
+                            }
+                        } catch (Exception e) {
+                            System.out.println("No color options found for " + model);
+                        }
+                        String colorList = String.join(" / ", colorSet);
+
+                        // 9. Print extracted data in console (for debugging/verification)
+                        System.out.println(model + "," + price + "," + storageList + "," + colorList);
+
+                        // 10. Write data to CSV
+                        printWriter1.println(model + "," + price + "," + storageList + "," + colorList);
+                    }
+
+                    System.out.println("\n✅ Data successfully appended to samsunggg_smartphones.csv");
+                }
+
+                // 11. Check for the Next Page button
+                try {
+                    WebElement nextPageButton = driver.findElement(By.cssSelector(".pagination-next"));
+                    nextPageButton.click();
+                    Thread.sleep(5000); // Wait for the next page to load
+                } catch (Exception e) {
+                    System.out.println("No more pages to scrape.");
+                    hasNextPage = false;
+                }
+            }
+        } catch (IOException | InterruptedException e1) {
+            e1.printStackTrace();
+        }
+//        } finally {
+//            // 12. Close the browser
+//            driver.quit();
+//        }
+            
+            try {
+                // Open Redmi Canada smartphones page
+                driver.get("https://redmi.ca/smartphones/");
+
+                do {
+                    // Find all phone elements on the current page
+                    List<WebElement> phoneElements = driver.findElements(By.xpath("//*[@id='post-2668']/div/div/div/div/div/div/div/div/ul/li/a"));
+
+                    // Iterate over each phone element
+                    for (int i = 0; i < phoneElements.size(); i++) {
+                        // Refresh the list of phones to prevent stale element reference
+                        List<WebElement> refreshedPhones = driver.findElements(By.xpath("//*[@id='post-2668']/div/div/div/div/div/div/div/div/ul/li/a"));
+                        WebElement phone = refreshedPhones.get(i);
+
+                        // Extract the mobile name
+                        String mobileName = phone.findElement(By.xpath(".//h2")).getText().trim();
+                        phone.click();
+
+                        // Wait for the price element to load on the details page
+                        WebElement costElement = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//span[contains(@class, 'woocommerce-Price-amount')]")));
+                        String mobileCost = costElement.getText().trim();
+
+                        // Extract color and storage details
+                        List<WebElement> options = driver.findElements(By.xpath("//select[@name='attribute_pa_color']//option"));
+                        Set<String> colors = new LinkedHashSet<>(); // Use LinkedHashSet to preserve order
+                        Set<String> storages = new HashSet<>();
+
+                        // Iterate through the dropdown options
+                        for (WebElement option : options) {
+                            String optionValue = option.getAttribute("value");
+
+                            // Handle cases like "8gb-256gb-blue" or "blue-8gb-256gb"
+                            if (optionValue.contains("-")) {
+                                String[] parts = optionValue.split("-");
+
+                                Set<String> tempColors = new HashSet<>();
+                                Set<String> tempStorages = new HashSet<>();
+
+                                // Loop through parts to classify them as storage or color
+                                for (String part : parts) {
+                                    if (part.toLowerCase().contains("gb")) {
+                                        // Only add specific storage sizes
+                                        if (part.equalsIgnoreCase("128gb") || part.equalsIgnoreCase("256gb") || part.equalsIgnoreCase("512gb")) {
+                                            tempStorages.add(part.toLowerCase());
+                                        }
+                                    } else {
+                                        tempColors.add(part);
+                                    }
+                                }
+
+                                // Add extracted values to the respective sets, ensuring no duplicates
+                                colors.addAll(tempColors);
+                                storages.addAll(tempStorages);
+                            } else {
+                                // Handle cases like "midnight-black" or other color-only values
+                                // If the option is a multi-word color (like "Midnight Black", "Ocean Blue", etc.), treat it as one color
+                                if (optionValue.matches("^[a-zA-Z]+( [a-zA-Z]+)*$") && !optionValue.contains("-")) {
+                                    // Handle multi-word colors like "Midnight Black" and treat them as one color
+                                    String[] colorParts = optionValue.split(" ");
+                                    if (colorParts.length > 1) {
+                                        // Combine the words into a single color
+                                        colors.add(String.join(" ", colorParts));
+                                    } else {
+                                        colors.add(optionValue);
+                                    }
+                                } else {
+                                    colors.add(optionValue); // Keep hyphenated colors as-is
+                                }
+                            }
+                        }
+
+                        // If no specific storage option is found, manually add "128GB", "256GB", and "512GB"
+                        if (storages.isEmpty()) {
+                            storages.add("128gb");
+                            storages.add("256gb");
+                            storages.add("512gb");
+                        }
+
+                        // Format the color and storage lists (remove duplicates and ensure no leading slash in colors)
+                        String colorList = String.join(" / ", colors);
+                        if (!colorList.isEmpty() && colorList.startsWith(" /")) {
+                            colorList = colorList.substring(2); // Remove leading slash and space
+                        }
+
+                        // Format the storage list (ensure no leading slash in case of multiple values)
+                        String storageList = String.join(" / ", storages);
+
+                        // Save the extracted data to CSV
+                        saveToCSV(mobileName, mobileCost, colorList, storageList);
+                        System.out.println("Saved: " + mobileName + " - " + mobileCost + " - Colors: " + colorList + " - Storage: " + storageList);
+
+                        // Navigate back to the smartphone list page
+                        driver.navigate().back();
+                        wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//*[@id='post-2668']/div/div/div/div/div/div/div/div/ul/li/a/h2")));
+                    }
+                } while (goToNextPage(driver, wait)); // Continue to the next page if available
+
+            } catch (Exception e) {
+                System.out.println("Error: " + e.getMessage());
+            } finally {
+                // Close the WebDriver after execution
+                driver.quit();
+            }
+
+    
+
+        // Close the browser
+        //driver.quit();
+
+        // Call BoyerMooreFrequencyCount to search for a word in the CSV file
+        BoyerMooreFrequencyCount.main(args);
+
+        // Call WordCompletion to provide word suggestions
+        WordCompletion.main(args);
+        
+        WordFixer.main(args);
+    }
+    
+    // Method to save mobile details to a CSV file
+    public static void saveToCSV(String mobileName, String cost, String colors, String storage) {
+        boolean fileExists = new File("redmi_specs.csv").exists();
+        try (FileWriter writer = new FileWriter("redmi_specs.csv", true)) {
+            if (!fileExists) {
+                writer.append("Mobile Name,Cost,Available Colors,Storage\n"); // Add header if file does not exist
+            }
+            writer.append("\"").append(mobileName).append("\",\"").append(cost).append("\",\"").append(colors).append("\",\"").append(storage).append("\"\n");
+        } catch (IOException e) {
+            System.err.println("Error writing to CSV: " + e.getMessage());
+        }
+    }
+
+    // Method to navigate to the next page if available
+    public static boolean goToNextPage(WebDriver driver, WebDriverWait wait) {
+        try {
+            // Find and click the 'Next' button if it exists
+            WebElement nextPageButton = wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//a[contains(@class, 'next')]")));
+            nextPageButton.click();
+
+            // Wait until the new page is fully loaded
+            wait.until(ExpectedConditions.stalenessOf(nextPageButton));
+            return true;
+        } catch (TimeoutException | NoSuchElementException e) {
+            return false; // Return false if there is no next page
+        }
+    }
+}
+
